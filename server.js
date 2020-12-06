@@ -8,9 +8,57 @@ const io = socket(server);
 
 const port = process.env.PORT || 5000;
 
+userInRoom = {};
+
+roomInUser = {};
+
+console.log(userInRoom);
+
 io.on("connection", (socket) => {
-  socket.on("join user", ({ roomID, roomName }) => {
-    console.log(`room name ${roomName} room id ${roomID}`);
+  socket.on("join user", ({ roomID, roomName, name, imageUrl }) => {
+    console.log("user joined!", socket.id);
+    // check room is full or not
+    if (userInRoom[roomID]) {
+      const length = userInRoom[roomID].length;
+      if (length === 4) {
+        socket.emit("room full");
+        return;
+      }
+      userInRoom[roomID].push({ userId: socket.id, roomName, name, imageUrl });
+    } else {
+      userInRoom[roomID] = [{ userId: socket.id, roomName, name, imageUrl }];
+    }
+
+    roomInUser[socket.id] = roomID;
+    // fetch all users in the room
+    const userInThisRoom = userInRoom[roomID].filter(
+      (user) => user.userId != socket.id
+    );
+    socket.emit("all users", userInThisRoom);
+  });
+
+  // sending the signal
+  socket.on("sending signal", ({ userToSignal, callerId, signal }) => {
+    console.log("sending signal!!", userToSignal);
+    socket.to(userToSignal).emit("user join", callerId, signal);
+  });
+
+  // returning signal
+  socket.on("returning signal", ({ callerId, signal }) => {
+    socket.to(callerId).emit("recieving returning signal", {
+      signal,
+      id: socket.id,
+    });
+  });
+
+  // on disconnect
+  socket.on("disconnect", () => {
+    const roomId = roomInUser[socket.id];
+    let room = userInRoom[roomId];
+    if (room) {
+      room = room.filter((user) => user.userId !== socket.id);
+      userInRoom[roomId] = room;
+    }
   });
 });
 
