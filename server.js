@@ -12,8 +12,6 @@ userInRoom = {};
 
 roomInUser = {};
 
-console.log(userInRoom);
-
 io.on("connection", (socket) => {
   socket.on("join user", ({ roomID, roomName, name, imageUrl }) => {
     console.log("user joined!", socket.id);
@@ -38,9 +36,13 @@ io.on("connection", (socket) => {
   });
 
   // sending the signal
-  socket.on("sending signal", ({ userToSignal, callerId, signal }) => {
+  socket.on("sending signal", ({ userToSignal, callerId, signal, roomID }) => {
     console.log("sending signal!!", userToSignal);
-    socket.to(userToSignal).emit("user join", callerId, signal);
+    // sending my data to the connevtor
+    const callerData = userInRoom[roomID].find(
+      (user) => user.userId === socket.id
+    );
+    socket.to(userToSignal).emit("user join", callerId, signal, callerData);
   });
 
   // returning signal
