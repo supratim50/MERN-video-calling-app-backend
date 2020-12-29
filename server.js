@@ -1,4 +1,5 @@
 require("dotenv").config();
+const { Console } = require("console");
 const express = require("express");
 const app = express();
 const http = require("http");
@@ -10,11 +11,13 @@ const port = process.env.PORT || 5000;
 
 userInRoom = {};
 
-roomInUser = {};
+ROOM_ID = "";
 
 io.on("connection", (socket) => {
+  // =================== VIDEO ======================
   socket.on("join user", ({ roomID, roomName, name, imageUrl }) => {
-    console.log("user joined!", socket.id);
+    // join user to the room
+    socket.join(roomID);
     // check room is full or not
     if (userInRoom[roomID]) {
       const length = userInRoom[roomID].length;
@@ -27,7 +30,8 @@ io.on("connection", (socket) => {
       userInRoom[roomID] = [{ userId: socket.id, roomName, name, imageUrl }];
     }
 
-    roomInUser[socket.id] = roomID;
+    ROOM_ID = roomID;
+    console.log("32", roomID);
     // fetch all users in the room
     const userInThisRoom = userInRoom[roomID].filter(
       (user) => user.userId != socket.id
@@ -37,7 +41,6 @@ io.on("connection", (socket) => {
 
   // sending the signal
   socket.on("sending signal", ({ userToSignal, callerId, signal, roomID }) => {
-    console.log("sending signal!!", userToSignal);
     // sending my data to the connevtor
     const callerData = userInRoom[roomID].find(
       (user) => user.userId === socket.id
@@ -53,14 +56,28 @@ io.on("connection", (socket) => {
     });
   });
 
-  // on disconnect
+  // ====================== CHAT =======================
+  socket.on("sending message", (message) => {
+    // fetching user ID
+    const senderData = userInRoom[ROOM_ID].find(
+      (user) => user.userId === socket.id
+    );
+    console.log("64", ROOM_ID, senderData, message);
+
+    // sending message to the other users
+    io.to(ROOM_ID).emit("message", { message, senderData });
+  });
+
+  // =================== On Disconnect ========================
   socket.on("disconnect", () => {
-    const roomId = roomInUser[socket.id];
+    console.log("user left");
+    const roomId = ROOM_ID;
     let room = userInRoom[roomId];
     if (room) {
       room = room.filter((user) => user.userId !== socket.id);
       userInRoom[roomId] = room;
     }
+    socket.broadcast.emit("user left", socket.id);
   });
 });
 
